@@ -1,6 +1,3 @@
-import { openai } from '@ai-sdk/openai';
-import { generateText } from 'ai';
-
 export const maxDuration = 30;
 
 export async function POST(request: Request) {
@@ -29,7 +26,7 @@ export async function POST(request: Request) {
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    console.error("[v0] OPENAI_API_KEY is missing");
+    console.error("[vision] OPENAI_API_KEY is missing");
     return Response.json(
       {
         error: "OPENAI_API_KEY no configurada",
@@ -40,52 +37,83 @@ export async function POST(request: Request) {
     );
   }
 
-  console.log("[v0] Calling OpenAI with image length:", imageDataUrl.length);
+  console.log("[vision] Calling OpenAI with image length:", imageDataUrl.length);
 
   try {
-    const prompt = `Analiza esta imagen. Responde SOLO con un JSON válido (sin markdown, sin backticks) con exactamente estos dos campos:
-
-{
-  "description": "Descripción detallada de lo que ves (2-4 oraciones, en argentino con voseo)",
-  "recommendations": "Recomendaciones útiles basadas en lo que ves (en argentino con voseo)"
-}`;
-
-    const { text } = await generateText({
-      model: openai('gpt-4o-mini'),
-      system: 'Sos un asistente argentino. Responde SOLO con JSON válido.',
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: prompt,
-            },
-            {
-              type: 'image',
-              image: imageDataUrl,
-            },
-          ],
-        },
-      ],
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        max_tokens: 500,
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: 'Analiza esta imagen. Responde SOLO con un JSON válido (sin markdown) con estos campos:\n{\n  "description": "Descripción detallada (2-4 oraciones, español argentino)",\n  "recommendations": "Recomendaciones útiles (español argentino)"\n}',
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: imageDataUrl,
+                  detail: "low",
+                },
+              },
+            ],
+          },
+        ],
+      }),
     });
 
-    console.log("[v0] OpenAI response:", text);
+    console.log("[vision] OpenAI status:", response.status);
 
-    // Parse JSON from response
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error('Invalid JSON in response');
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("[vision] OpenAI error:", errorText);
+      return Response.json(
+        {
+          error: `OpenAI error ${response.status}`,
+          description: "",
+          recommendations: "",
+        },
+        { status: 502 },
+      );
     }
 
-    const parsed = JSON.parse(jsonMatch[0]);
+    const data = await response.json();
+    const rawText = data?.choices?.[0]?.message?.content?.trim() || "";
 
-    return Response.json({
-      description: String(parsed.description || ""),
-      recommendations: String(parsed.recommendations || ""),
-    });
+    console.log("[vision] Raw response:", rawText.substring(0, 200));
+
+    // Extract JSON from response
+    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      return Response.json({
+        description: rawText,
+        recommendations: "",
+      });
+    }
+
+    try {
+      const parsed = JSON.parse(jsonMatch[0]);
+      return Response.json({
+        description: String(parsed.description || ""),
+        recommendations: String(parsed.recommendations || ""),
+      });
+    } catch (e) {
+      console.error("[vision] JSON parse error:", e);
+      return Response.json({
+        description: rawText,
+        recommendations: "",
+      });
+    }
   } catch (err) {
-    console.error("[v0] Error:", err);
+    console.error("[vision] Fetch error:", err);
     return Response.json(
       {
         error: err instanceof Error ? err.message : "Error de red",

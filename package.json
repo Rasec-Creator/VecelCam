@@ -56,9 +56,7 @@
     "sonner": "^1.7.1",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
-    "vaul": "^1.1.2",
-    "ai": "^4.1.0",
-    "@ai-sdk/openai": "^0.0.50"
+    "vaul": "^1.1.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.13",
