@@ -79,7 +79,9 @@ export async function POST(request: Request) {
 
     if (!gatewayResponse.ok) {
       const errorText = await gatewayResponse.text();
+      console.error("[v0] Gateway error status:", gatewayResponse.status);
       console.error("[v0] Gateway error body:", errorText);
+      console.error("[v0] Gateway error headers:", Object.fromEntries(gatewayResponse.headers));
       return Response.json(
         {
           error: `AI Gateway error ${gatewayResponse.status}`,
