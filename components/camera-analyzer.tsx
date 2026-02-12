@@ -361,6 +361,7 @@ export function CameraAnalyzer() {
               onStop={stopCamera}
               onSnap={handleSnap}
               onFacingChange={handleFacingChange}
+              language={language}
             />
           </div>
 
