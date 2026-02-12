@@ -11,6 +11,8 @@ interface AnalysisResultsProps {
   onDescriptionChange: (value: string) => void;
   onRecommendationsChange: (value: string) => void;
   onTTS: () => void;
+  isPlayingTTS: boolean;
+  isPausedTTS: boolean;
 }
 
 export function AnalysisResults({
@@ -19,13 +21,27 @@ export function AnalysisResults({
   onDescriptionChange,
   onRecommendationsChange,
   onTTS,
+  isPlayingTTS,
+  isPausedTTS,
 }: AnalysisResultsProps) {
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-2">
-        <Label htmlFor="desc" className="font-black text-foreground">
-          Descripcion
-        </Label>
+        <div className="flex items-center gap-3">
+          <Label htmlFor="desc" className="font-black flex-1 text-foreground">
+            Descripcion
+          </Label>
+          {(isPlayingTTS || isPausedTTS) && (
+            <Button
+              onClick={onTTS}
+              variant={isPlayingTTS ? "destructive" : "outline"}
+              size="sm"
+            >
+              <Volume2 className="h-4 w-4 mr-2" />
+              {isPlayingTTS ? "Pausar" : "Reproducir"}
+            </Button>
+          )}
+        </div>
         <Textarea
           id="desc"
           rows={7}
@@ -41,10 +57,16 @@ export function AnalysisResults({
           <Label htmlFor="reco" className="font-black flex-1 text-foreground">
             Recomendaciones
           </Label>
-          <Button onClick={onTTS} variant="outline" size="sm">
-            <Volume2 className="h-4 w-4 mr-2" />
-            Text-to-Speech
-          </Button>
+          {(isPlayingTTS || isPausedTTS) && (
+            <Button
+              onClick={onTTS}
+              variant={isPlayingTTS ? "destructive" : "outline"}
+              size="sm"
+            >
+              <Volume2 className="h-4 w-4 mr-2" />
+              {isPlayingTTS ? "Pausar" : "Reproducir"}
+            </Button>
+          )}
         </div>
         <Textarea
           id="reco"

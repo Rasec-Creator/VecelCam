@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useCamera } from "@/hooks/use-camera";
 import { CameraViewer } from "@/components/camera-viewer";
 import { CameraControls } from "@/components/camera-controls";
@@ -30,6 +30,9 @@ export function CameraAnalyzer() {
   const [description, setDescription] = useState("");
   const [recommendations, setRecommendations] = useState("");
   const [diagnostics, setDiagnostics] = useState<Record<string, string>>({});
+  const [isPlayingTTS, setIsPlayingTTS] = useState(false);
+  const [isPausedTTS, setIsPausedTTS] = useState(false);
+  const autoPlayStartedRef = useRef(false);
 
   useEffect(() => {
     setDiagnostics(getDiagnostics());
@@ -89,41 +92,37 @@ export function CameraAnalyzer() {
         const errMsg = out?.error || `HTTP ${res.status}`;
         setDescription(out?.description || "");
         setRecommendations(out?.recommendations || "");
+        autoPlayStartedRef.current = false;
         setStatus(`Error: ${errMsg}`, "err");
         return;
       }
 
       setDescription(out?.description || "");
       setRecommendations(out?.recommendations || "");
+      autoPlayStartedRef.current = false;
       setStatus("Listo. Recomendaciones generadas.", "ok");
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : "Error desconocido";
       setDescription("");
       setRecommendations("");
+      autoPlayStartedRef.current = false;
       setStatus(`Error de conexion: ${errMsg}`, "err");
     } finally {
       setIsCapturing(false);
     }
   }, [state.isStreaming, capturePhoto, setStatus]);
 
-  const handleTTS = useCallback(() => {
-    const text = recommendations.trim();
-    if (!text) {
-      setStatus("No hay recomendaciones para leer.", "err");
+  const startAutoTTS = useCallback(() => {
+    const descText = description.trim();
+    if (!descText && !recommendations.trim()) {
       return;
     }
 
-    try {
-      window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = "es-AR";
-      u.rate = 0.95;
-      u.pitch = 1.0;
+    setIsPlayingTTS(true);
+    setIsPausedTTS(false);
+    const voices = window.speechSynthesis.getVoices();
 
-      // Pick the best Spanish voice available
-      const voices = window.speechSynthesis.getVoices();
-
-      // Priority: es-AR > es-MX > es-US > any es-* > default
+    const getVoice = () => {
       const arVoice = voices.find(
         (v) =>
           v.lang === "es-AR" ||
@@ -138,21 +137,92 @@ export function CameraAnalyzer() {
           v.lang === "es_US",
       );
       const anySpanish = voices.find((v) => v.lang.startsWith("es"));
+      return arVoice || latamVoice || anySpanish;
+    };
 
-      const chosen = arVoice || latamVoice || anySpanish;
-      if (chosen) {
-        u.voice = chosen;
+    const speakText = (text: string, onComplete: () => void) => {
+      if (!text.trim()) {
+        onComplete();
+        return;
       }
 
-      u.onend = () => setStatus("Audio finalizado.", "ok");
-      u.onerror = () => setStatus("Error en la reproduccion de audio.", "err");
+      try {
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = "es-AR";
+        u.rate = 0.95;
+        u.pitch = 1.0;
+        const voice = getVoice();
+        if (voice) {
+          u.voice = voice;
+        }
+        u.onend = onComplete;
+        u.onerror = () => {
+          setStatus("Error en la reproduccion de audio.", "err");
+          setIsPlayingTTS(false);
+          setIsPausedTTS(true);
+        };
+        window.speechSynthesis.speak(u);
+      } catch {
+        setStatus("Text-to-Speech no disponible.", "err");
+        setIsPlayingTTS(false);
+        setIsPausedTTS(true);
+      }
+    };
 
-      window.speechSynthesis.speak(u);
+    // Leer descripción primero
+    if (descText) {
+      speakText(descText, () => {
+        // Luego leer recomendaciones
+        const recText = recommendations.trim();
+        speakText(recText, () => {
+          setStatus("Audio finalizado.", "ok");
+          setIsPlayingTTS(false);
+          setIsPausedTTS(true);
+        });
+      });
       setStatus("Reproduciendo audio...", "ok");
-    } catch {
-      setStatus("Text-to-Speech no disponible.", "err");
+    } else {
+      // Si no hay descripción, solo leer recomendaciones
+      speakText(recommendations.trim(), () => {
+        setStatus("Audio finalizado.", "ok");
+        setIsPlayingTTS(false);
+        setIsPausedTTS(true);
+      });
+      setStatus("Reproduciendo audio...", "ok");
     }
-  }, [recommendations, setStatus]);
+  }, [description, recommendations, setStatus]);
+
+  const handleTTSToggle = useCallback(() => {
+    if (isPlayingTTS && !isPausedTTS) {
+      // Está reproduciendo, pausar
+      window.speechSynthesis.pause();
+      setIsPlayingTTS(false);
+      setIsPausedTTS(true);
+      setStatus("Audio pausado.", "warn");
+    } else if (isPausedTTS) {
+      // Está pausado, reiniciar desde el principio
+      window.speechSynthesis.cancel();
+      setIsPlayingTTS(true);
+      setIsPausedTTS(false);
+      autoPlayStartedRef.current = false;
+      // Usar setTimeout para asegurar que el cancel se procese
+      setTimeout(() => {
+        startAutoTTS();
+      }, 50);
+    } else {
+      // No se está reproduciendo, comenzar
+      autoPlayStartedRef.current = false;
+      startAutoTTS();
+    }
+  }, [isPlayingTTS, isPausedTTS, startAutoTTS, setStatus]);
+
+  // Lectura automática cuando cambien descripción o recomendaciones
+  useEffect(() => {
+    if ((description.trim() || recommendations.trim()) && !autoPlayStartedRef.current) {
+      autoPlayStartedRef.current = true;
+      startAutoTTS();
+    }
+  }, [description, recommendations]);
 
   return (
     <div className="min-h-screen py-6 px-4">
@@ -176,23 +246,6 @@ export function CameraAnalyzer() {
                 By CallBot
                 <span className="text-orange-500 font-black">IA</span>
               </p>
-            </div>
-          </div>
-
-          {/* Environment banner */}
-          <div className="mt-3 p-3 rounded-2xl border border-border bg-black/20 text-muted-foreground text-xs leading-relaxed">
-            <div className="flex items-start gap-2">
-              <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-amber-400" />
-              <span>
-                <span className="font-bold text-foreground">
-                  Requisitos de camara:
-                </span>{" "}
-                debe abrirse en{" "}
-                <span className="font-bold text-foreground">HTTPS</span> (o{" "}
-                <span className="font-bold text-foreground">localhost</span>).
-                Si lo abris como archivo (<code>{"file://"}</code>) o dentro de
-                un iframe sin permisos, el navegador puede bloquear la camara.
-              </span>
             </div>
           </div>
 
@@ -237,7 +290,9 @@ export function CameraAnalyzer() {
               recommendations={recommendations}
               onDescriptionChange={setDescription}
               onRecommendationsChange={setRecommendations}
-              onTTS={handleTTS}
+              onTTS={handleTTSToggle}
+              isPlayingTTS={isPlayingTTS}
+              isPausedTTS={isPausedTTS}
             />
           </div>
 
