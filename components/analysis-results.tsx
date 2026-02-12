@@ -70,16 +70,6 @@ export function AnalysisResults({
           <Label htmlFor="reco" className="font-black flex-1 text-foreground">
             {t.recommendations}
           </Label>
-          {(isPlayingTTS || isPausedTTS) && (
-            <Button
-              onClick={onTTS}
-              variant={isPlayingTTS ? "destructive" : "outline"}
-              size="sm"
-            >
-              <Volume2 className="h-4 w-4 mr-2" />
-              {isPlayingTTS ? buttonLabels[language].pause : buttonLabels[language].play}
-            </Button>
-          )}
         </div>
         <Textarea
           id="reco"
