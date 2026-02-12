@@ -1,11 +1,34 @@
 export const maxDuration = 30;
 
+type Language = "es" | "en" | "pt";
+
+const languagePrompts: Record<Language, string> = {
+  es: `Analiza esta imagen. Responde SOLO con un JSON válido (sin markdown) con estos campos:
+{
+  "description": "Descripción detallada (2-4 oraciones, en español argentino)",
+  "recommendations": "Recomendaciones útiles (en español argentino)"
+}`,
+  en: `Analyze this image. Respond ONLY with valid JSON (no markdown) with these fields:
+{
+  "description": "Detailed description (2-4 sentences, in English)",
+  "recommendations": "Useful recommendations (in English)"
+}`,
+  pt: `Analise esta imagem. Responda APENAS com JSON válido (sem markdown) com estes campos:
+{
+  "description": "Descrição detalhada (2-4 frases, em português brasileiro)",
+  "recommendations": "Recomendações úteis (em português brasileiro)"
+}`,
+};
+
 export async function POST(request: Request) {
   let imageDataUrl: string;
+  let language: Language = "es";
 
   try {
     const body = await request.json();
     imageDataUrl = body.image_data_url;
+    const incomingLanguage = body.language as string;
+    language = (["es", "en", "pt"].includes(incomingLanguage) ? incomingLanguage : "es") as Language;
   } catch {
     return Response.json({ error: "Body JSON invalido" }, { status: 400 });
   }
@@ -37,8 +60,6 @@ export async function POST(request: Request) {
     );
   }
 
-  console.log("[vision] Calling OpenAI with image length:", imageDataUrl.length);
-
   try {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -55,7 +76,7 @@ export async function POST(request: Request) {
             content: [
               {
                 type: "text",
-                text: 'Analiza esta imagen. Responde SOLO con un JSON válido (sin markdown) con estos campos:\n{\n  "description": "Descripción detallada (2-4 oraciones, español argentino)",\n  "recommendations": "Recomendaciones útiles (español argentino)"\n}',
+                text: languagePrompts[language],
               },
               {
                 type: "image_url",
@@ -70,7 +91,6 @@ export async function POST(request: Request) {
       }),
     });
 
-    console.log("[vision] OpenAI status:", response.status);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -88,7 +108,6 @@ export async function POST(request: Request) {
     const data = await response.json();
     const rawText = data?.choices?.[0]?.message?.content?.trim() || "";
 
-    console.log("[vision] Raw response:", rawText.substring(0, 200));
 
     // Extract JSON from response
     const jsonMatch = rawText.match(/\{[\s\S]*\}/);

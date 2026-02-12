@@ -10,6 +10,76 @@ import { DiagnosticsPanel } from "@/components/diagnostics-panel";
 import { AlertTriangle } from "lucide-react";
 
 type CameraFacing = "environment" | "user";
+type Language = "es" | "en" | "pt";
+
+const translations: Record<Language, Record<string, string>> = {
+  es: {
+    title: "Analizador de Cámara Online",
+    subtitle: "Por CallBotIA",
+    requirements: "Requisitos de cámara: debe abrirse en HTTPS (o localhost). Si lo abris como archivo (file://) o dentro de un iframe sin permisos, el navegador puede bloquear la cámara.",
+    analyzing: "Analizando imagen con IA...",
+    ready: "Listo. Recomendaciones generadas.",
+    error_capture: "Error al capturar la foto.",
+    error_connection: "Error de conexion: ",
+    camera_not_started: "Camara no iniciada.",
+    description: "Descripcion",
+    recommendations: "Recomendaciones",
+    description_placeholder: "Aqui aparecera una descripcion breve.",
+    recommendations_placeholder: "Aqui apareceran recomendaciones complementarias.",
+    hint: "La descripcion y recomendaciones se generan con IA al capturar una foto.",
+    playing: "Reproduciendo audio...",
+    paused: "Audio pausado.",
+    finished: "Audio finalizado.",
+    error_tts: "Error en la reproduccion de audio.",
+    error_tts_unavailable: "Text-to-Speech no disponible.",
+    reading_description: "Descripción. ",
+    reading_recommendations: "Recomendaciones. ",
+  },
+  en: {
+    title: "Online Camera Analyzer",
+    subtitle: "By CallBotIA",
+    requirements: "Camera requirements: must be opened in HTTPS (or localhost). If you open it as a file (file://) or within an iframe without permissions, the browser may block the camera.",
+    analyzing: "Analyzing image with AI...",
+    ready: "Ready. Recommendations generated.",
+    error_capture: "Error capturing the photo.",
+    error_connection: "Connection error: ",
+    camera_not_started: "Camera not started.",
+    description: "Description",
+    recommendations: "Recommendations",
+    description_placeholder: "A brief description will appear here.",
+    recommendations_placeholder: "Complementary recommendations will appear here.",
+    hint: "The description and recommendations are generated with AI when capturing a photo.",
+    playing: "Playing audio...",
+    paused: "Audio paused.",
+    finished: "Audio finished.",
+    error_tts: "Error in audio reproduction.",
+    error_tts_unavailable: "Text-to-Speech not available.",
+    reading_description: "Description. ",
+    reading_recommendations: "Recommendations. ",
+  },
+  pt: {
+    title: "Analisador de Câmera Online",
+    subtitle: "Por CallBotIA",
+    requirements: "Requisitos da câmera: deve ser aberto em HTTPS (ou localhost). Se você abri-lo como arquivo (file://) ou dentro de um iframe sem permissões, o navegador pode bloquear a câmera.",
+    analyzing: "Analisando imagem com IA...",
+    ready: "Pronto. Recomendações geradas.",
+    error_capture: "Erro ao capturar a foto.",
+    error_connection: "Erro de conexão: ",
+    camera_not_started: "Câmera não iniciada.",
+    description: "Descrição",
+    recommendations: "Recomendações",
+    description_placeholder: "Uma breve descrição aparecerá aqui.",
+    recommendations_placeholder: "Recomendações complementares aparecerão aqui.",
+    hint: "A descrição e recomendações são geradas com IA ao capturar uma foto.",
+    playing: "Reproduzindo áudio...",
+    paused: "Áudio pausado.",
+    finished: "Áudio concluído.",
+    error_tts: "Erro na reprodução de áudio.",
+    error_tts_unavailable: "Text-to-Speech não disponível.",
+    reading_description: "Descrição. ",
+    reading_recommendations: "Recomendações. ",
+  },
+};
 
 export function CameraAnalyzer() {
   const {
@@ -32,7 +102,10 @@ export function CameraAnalyzer() {
   const [diagnostics, setDiagnostics] = useState<Record<string, string>>({});
   const [isPlayingTTS, setIsPlayingTTS] = useState(false);
   const [isPausedTTS, setIsPausedTTS] = useState(false);
+  const [language, setLanguage] = useState<Language>("es");
   const autoPlayStartedRef = useRef(false);
+
+  const t = translations[language];
 
   useEffect(() => {
     setDiagnostics(getDiagnostics());
@@ -64,53 +137,56 @@ export function CameraAnalyzer() {
 
   const handleSnap = useCallback(async () => {
     if (!state.isStreaming) {
-      setStatus("Camara no iniciada.", "err");
+      setStatus(t.camera_not_started, "err");
       return;
     }
 
     setIsCapturing(true);
     const dataUrl = capturePhoto();
     if (!dataUrl) {
-      setStatus("Error al capturar la foto.", "err");
+      setStatus(t.error_capture, "err");
       setIsCapturing(false);
       return;
     }
 
     setPhotoUrl(dataUrl);
-    setStatus("Analizando imagen con IA...", "warn");
+    setStatus(t.analyzing, "warn");
 
     try {
       const res = await fetch("/api/vision", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image_data_url: dataUrl }),
+        body: JSON.stringify({ 
+          image_data_url: dataUrl,
+          language: language
+        }),
       });
 
       const out = await res.json();
 
       if (!res.ok) {
         const errMsg = out?.error || `HTTP ${res.status}`;
+        autoPlayStartedRef.current = false;
         setDescription(out?.description || "");
         setRecommendations(out?.recommendations || "");
-        autoPlayStartedRef.current = false;
         setStatus(`Error: ${errMsg}`, "err");
         return;
       }
 
+      autoPlayStartedRef.current = false;
       setDescription(out?.description || "");
       setRecommendations(out?.recommendations || "");
-      autoPlayStartedRef.current = false;
-      setStatus("Listo. Recomendaciones generadas.", "ok");
+      setStatus(t.ready, "ok");
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : "Error desconocido";
+      autoPlayStartedRef.current = false;
       setDescription("");
       setRecommendations("");
-      autoPlayStartedRef.current = false;
       setStatus(`Error de conexion: ${errMsg}`, "err");
     } finally {
       setIsCapturing(false);
     }
-  }, [state.isStreaming, capturePhoto, setStatus]);
+  }, [state.isStreaming, capturePhoto, setStatus, language, t]);
 
   const startAutoTTS = useCallback(() => {
     const descText = description.trim();
@@ -123,21 +199,18 @@ export function CameraAnalyzer() {
     const voices = window.speechSynthesis.getVoices();
 
     const getVoice = () => {
-      const arVoice = voices.find(
-        (v) =>
-          v.lang === "es-AR" ||
-          v.lang === "es_AR" ||
-          (v.lang.startsWith("es") && v.name.toLowerCase().includes("argentin")),
-      );
-      const latamVoice = voices.find(
-        (v) =>
-          v.lang === "es-MX" ||
-          v.lang === "es-US" ||
-          v.lang === "es_MX" ||
-          v.lang === "es_US",
-      );
-      const anySpanish = voices.find((v) => v.lang.startsWith("es"));
-      return arVoice || latamVoice || anySpanish;
+      const langMap: Record<Language, string[]> = {
+        es: ["es-AR", "es-MX", "es-US", "es"],
+        en: ["en-US", "en-GB", "en"],
+        pt: ["pt-BR", "pt"],
+      };
+      
+      const langs = langMap[language];
+      const exactMatch = voices.find((v) => langs.includes(v.lang));
+      if (exactMatch) return exactMatch;
+      
+      const partialMatch = voices.find((v) => v.lang.startsWith(langs[0]?.split("-")[0] || "es"));
+      return partialMatch;
     };
 
     const speakText = (text: string, onComplete: () => void) => {
@@ -148,7 +221,12 @@ export function CameraAnalyzer() {
 
       try {
         const u = new SpeechSynthesisUtterance(text);
-        u.lang = "es-AR";
+        const langMap: Record<Language, string> = {
+          es: "es-AR",
+          en: "en-US",
+          pt: "pt-BR",
+        };
+        u.lang = langMap[language];
         u.rate = 0.95;
         u.pitch = 1.0;
         const voice = getVoice();
@@ -157,13 +235,13 @@ export function CameraAnalyzer() {
         }
         u.onend = onComplete;
         u.onerror = () => {
-          setStatus("Error en la reproduccion de audio.", "err");
+          setStatus(t.error_tts, "err");
           setIsPlayingTTS(false);
           setIsPausedTTS(true);
         };
         window.speechSynthesis.speak(u);
       } catch {
-        setStatus("Text-to-Speech no disponible.", "err");
+        setStatus(t.error_tts_unavailable, "err");
         setIsPlayingTTS(false);
         setIsPausedTTS(true);
       }
@@ -171,26 +249,26 @@ export function CameraAnalyzer() {
 
     // Leer descripción primero
     if (descText) {
-      speakText(descText, () => {
+      speakText(t.reading_description + descText, () => {
         // Luego leer recomendaciones
         const recText = recommendations.trim();
-        speakText(recText, () => {
-          setStatus("Audio finalizado.", "ok");
+        speakText(t.reading_recommendations + recText, () => {
+          setStatus(t.finished, "ok");
           setIsPlayingTTS(false);
           setIsPausedTTS(true);
         });
       });
-      setStatus("Reproduciendo audio...", "ok");
+      setStatus(t.playing, "ok");
     } else {
       // Si no hay descripción, solo leer recomendaciones
-      speakText(recommendations.trim(), () => {
-        setStatus("Audio finalizado.", "ok");
+      speakText(t.reading_recommendations + recommendations.trim(), () => {
+        setStatus(t.finished, "ok");
         setIsPlayingTTS(false);
         setIsPausedTTS(true);
       });
-      setStatus("Reproduciendo audio...", "ok");
+      setStatus(t.playing, "ok");
     }
-  }, [description, recommendations, setStatus]);
+  }, [description, recommendations, setStatus, language, t]);
 
   const handleTTSToggle = useCallback(() => {
     if (isPlayingTTS && !isPausedTTS) {
@@ -198,7 +276,7 @@ export function CameraAnalyzer() {
       window.speechSynthesis.pause();
       setIsPlayingTTS(false);
       setIsPausedTTS(true);
-      setStatus("Audio pausado.", "warn");
+      setStatus(t.paused, "warn");
     } else if (isPausedTTS) {
       // Está pausado, reiniciar desde el principio
       window.speechSynthesis.cancel();
@@ -214,7 +292,7 @@ export function CameraAnalyzer() {
       autoPlayStartedRef.current = false;
       startAutoTTS();
     }
-  }, [isPlayingTTS, isPausedTTS, startAutoTTS, setStatus]);
+  }, [isPlayingTTS, isPausedTTS, startAutoTTS, setStatus, t]);
 
   // Lectura automática cuando cambien descripción o recomendaciones
   useEffect(() => {
@@ -222,7 +300,12 @@ export function CameraAnalyzer() {
       autoPlayStartedRef.current = true;
       startAutoTTS();
     }
-  }, [description, recommendations]);
+  }, [description, recommendations, startAutoTTS]);
+
+  // Resetear el flag cuando cambia el idioma
+  useEffect(() => {
+    autoPlayStartedRef.current = false;
+  }, [language]);
 
   return (
     <div className="min-h-screen py-6 px-4">
@@ -240,13 +323,21 @@ export function CameraAnalyzer() {
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <h1 className="text-2xl md:text-3xl font-bold tracking-tight bg-gradient-to-r from-emerald-400 to-blue-500 bg-clip-text text-transparent">
-                Online Camera Analyzer
+                {t.title}
               </h1>
               <p className="mt-1 text-muted-foreground font-semibold">
-                By CallBot
-                <span className="text-orange-500 font-black">IA</span>
+                {t.subtitle}
               </p>
             </div>
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value as Language)}
+              className="px-3 py-2 rounded-lg border border-border bg-card text-foreground font-semibold cursor-pointer hover:border-primary transition-colors"
+            >
+              <option value="es">Español</option>
+              <option value="en">English</option>
+              <option value="pt">Português</option>
+            </select>
           </div>
 
           {/* Camera viewer */}
@@ -293,6 +384,8 @@ export function CameraAnalyzer() {
               onTTS={handleTTSToggle}
               isPlayingTTS={isPlayingTTS}
               isPausedTTS={isPausedTTS}
+              language={language}
+              translations={translations}
             />
           </div>
 
@@ -301,14 +394,9 @@ export function CameraAnalyzer() {
             <StatusBar message={state.status} kind={state.statusKind} />
           </div>
 
-          {/* Diagnostics */}
-          <div className="mt-3">
-            <DiagnosticsPanel diagnostics={diagnostics} />
-          </div>
-
           {/* Hint */}
           <p className="mt-3 text-muted-foreground text-xs">
-            La descripcion y recomendaciones se generan con IA al capturar una foto.
+            {t.hint}
           </p>
 
           {/* Hidden canvas for photo capture */}
