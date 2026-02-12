@@ -376,14 +376,14 @@ export function useCamera(language: Language = "es") {
     setOverlay(t.how_to_enable, msg);
   }, [setStatus, setOverlay, t]);
 
-  const getDiagnostics = useCallback(() => {
+  const getDiagnostics = useCallback((): Record<string, string> => {
     if (typeof window === "undefined") return {};
     return {
-      protocol: location.protocol,
+      protocol: location.protocol || "unknown",
       secure: isSecure() ? "OK" : "NO (usa HTTPS o localhost)",
       iframe: inIframe() ? "Si" : "No",
       permissionsApi: !!navigator.permissions?.query ? "Si" : "No",
-      userAgent: navigator.userAgent,
+      userAgent: navigator.userAgent || "unknown",
     };
   }, []);
 

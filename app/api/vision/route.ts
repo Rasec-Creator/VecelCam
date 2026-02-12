@@ -107,6 +107,15 @@ export async function POST(request: Request) {
 
     const data = await response.json();
     const rawText = data?.choices?.[0]?.message?.content?.trim() || "";
+    
+    // Log token usage
+    if (data?.usage) {
+      console.log("Token usage:", {
+        prompt_tokens: data.usage.prompt_tokens,
+        completion_tokens: data.usage.completion_tokens,
+        total_tokens: data.usage.total_tokens,
+      });
+    }
 
 
     // Extract JSON from response

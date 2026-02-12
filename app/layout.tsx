@@ -7,9 +7,12 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: "Online Camera Analyzer - CallBotIA",
+  title: "Camera Analyzer - CallBotIA",
   description:
     "Analiza imagenes capturadas con la camara en tiempo real usando inteligencia artificial.",
+  icons: {
+    icon: "/ico.ico",
+  },
 };
 
 export const viewport: Viewport = {

@@ -6,7 +6,6 @@ import { CameraViewer } from "@/components/camera-viewer";
 import { CameraControls } from "@/components/camera-controls";
 import { AnalysisResults } from "@/components/analysis-results";
 import { StatusBar } from "@/components/status-bar";
-import { DiagnosticsPanel } from "@/components/diagnostics-panel";
 import { AlertTriangle } from "lucide-react";
 
 type CameraFacing = "environment" | "user";
