@@ -79,6 +79,7 @@ const translations: Record<Language, Record<string, string>> = {
 };
 
 export function CameraAnalyzer() {
+  const [language, setLanguage] = useState<Language>("es");
   const {
     videoRef,
     canvasRef,
@@ -89,7 +90,7 @@ export function CameraAnalyzer() {
     showHowTo,
     setStatus,
     getDiagnostics,
-  } = useCamera();
+  } = useCamera(language);
 
   const [facing, setFacing] = useState<CameraFacing>("environment");
   const [isCapturing, setIsCapturing] = useState(false);
@@ -99,7 +100,6 @@ export function CameraAnalyzer() {
   const [diagnostics, setDiagnostics] = useState<Record<string, string>>({});
   const [isPlayingTTS, setIsPlayingTTS] = useState(false);
   const [isPausedTTS, setIsPausedTTS] = useState(false);
-  const [language, setLanguage] = useState<Language>("es");
   const autoPlayStartedRef = useRef(false);
 
   const t = translations[language];
@@ -347,6 +347,7 @@ export function CameraAnalyzer() {
               overlayText={state.overlayText}
               onRetry={handleStart}
               onHowTo={showHowTo}
+              language={language}
             />
           </div>
 

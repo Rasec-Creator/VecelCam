@@ -4,6 +4,14 @@ import { RefObject } from "react";
 import { Camera, RefreshCw, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+type Language = "es" | "en" | "pt";
+
+const buttonLabels: Record<Language, { retry: string; howTo: string }> = {
+  es: { retry: "Reintentar", howTo: "Como habilitar" },
+  en: { retry: "Retry", howTo: "How to enable" },
+  pt: { retry: "Tentar novamente", howTo: "Como ativar" },
+};
+
 interface CameraViewerProps {
   videoRef: RefObject<HTMLVideoElement | null>;
   overlayVisible: boolean;
@@ -11,6 +19,7 @@ interface CameraViewerProps {
   overlayText: string;
   onRetry: () => void;
   onHowTo: () => void;
+  language?: Language;
 }
 
 export function CameraViewer({
@@ -20,6 +29,7 @@ export function CameraViewer({
   overlayText,
   onRetry,
   onHowTo,
+  language = "es",
 }: CameraViewerProps) {
   return (
     <div className="relative w-full aspect-video bg-black/40 rounded-2xl overflow-hidden border border-border">
@@ -44,11 +54,11 @@ export function CameraViewer({
             <div className="flex items-center justify-center gap-3 mt-4 flex-wrap">
               <Button onClick={onRetry} size="sm">
                 <RefreshCw className="h-4 w-4 mr-2" />
-                Reintentar
+                {buttonLabels[language].retry}
               </Button>
               <Button onClick={onHowTo} variant="outline" size="sm">
                 <HelpCircle className="h-4 w-4 mr-2" />
-                Como habilitar
+                {buttonLabels[language].howTo}
               </Button>
             </div>
           </div>
