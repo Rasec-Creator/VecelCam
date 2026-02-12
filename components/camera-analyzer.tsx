@@ -15,7 +15,6 @@ type Language = "es" | "en" | "pt";
 const translations: Record<Language, Record<string, string>> = {
   es: {
     title: "Analizador de Cámara Online",
-    subtitle: "Por CallBotIA",
     requirements: "Requisitos de cámara: debe abrirse en HTTPS (o localhost). Si lo abris como archivo (file://) o dentro de un iframe sin permisos, el navegador puede bloquear la cámara.",
     analyzing: "Analizando imagen con IA...",
     ready: "Listo. Recomendaciones generadas.",
@@ -37,7 +36,6 @@ const translations: Record<Language, Record<string, string>> = {
   },
   en: {
     title: "Online Camera Analyzer",
-    subtitle: "By CallBotIA",
     requirements: "Camera requirements: must be opened in HTTPS (or localhost). If you open it as a file (file://) or within an iframe without permissions, the browser may block the camera.",
     analyzing: "Analyzing image with AI...",
     ready: "Ready. Recommendations generated.",
@@ -59,7 +57,6 @@ const translations: Record<Language, Record<string, string>> = {
   },
   pt: {
     title: "Analisador de Câmera Online",
-    subtitle: "Por CallBotIA",
     requirements: "Requisitos da câmera: deve ser aberto em HTTPS (ou localhost). Se você abri-lo como arquivo (file://) ou dentro de um iframe sem permissões, o navegador pode bloquear a câmera.",
     analyzing: "Analisando imagem com IA...",
     ready: "Pronto. Recomendações geradas.",
@@ -326,7 +323,8 @@ export function CameraAnalyzer() {
                 {t.title}
               </h1>
               <p className="mt-1 text-muted-foreground font-semibold">
-                {t.subtitle}
+                By CallBot
+                <span className="text-orange-500 font-black">IA</span>
               </p>
             </div>
             <select
