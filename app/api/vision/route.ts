@@ -2,6 +2,13 @@ export const maxDuration = 30;
 
 type Language = "es" | "en" | "pt";
 
+// Headers de CORS para permitir a Ferozo (callbotia.site)
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "https://callbotia.site",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
+
 const languagePrompts: Record<Language, string> = {
   es: `Analiza esta imagen. Responde SOLO con un JSON válido (sin markdown) con estos campos:
 {
@@ -20,6 +27,14 @@ const languagePrompts: Record<Language, string> = {
 }`,
 };
 
+// MANEJO DE PREFLIGHT (Obligatorio para CORS)
+export async function OPTIONS() {
+  return new Response(null, {
+    status: 204,
+    headers: corsHeaders,
+  });
+}
+
 export async function POST(request: Request) {
   let imageDataUrl: string;
   let language: Language = "es";
@@ -30,20 +45,20 @@ export async function POST(request: Request) {
     const incomingLanguage = body.language as string;
     language = (["es", "en", "pt"].includes(incomingLanguage) ? incomingLanguage : "es") as Language;
   } catch {
-    return Response.json({ error: "Body JSON invalido" }, { status: 400 });
+    return Response.json({ error: "Body JSON invalido" }, { status: 400, headers: corsHeaders });
   }
 
   if (!imageDataUrl || typeof imageDataUrl !== "string") {
     return Response.json(
       { error: "Se requiere el campo image_data_url" },
-      { status: 400 },
+      { status: 400, headers: corsHeaders },
     );
   }
 
   if (!imageDataUrl.startsWith("data:image/")) {
     return Response.json(
       { error: "Formato de imagen invalido" },
-      { status: 400 },
+      { status: 400, headers: corsHeaders },
     );
   }
 
@@ -56,7 +71,7 @@ export async function POST(request: Request) {
         description: "",
         recommendations: "",
       },
-      { status: 500 },
+      { status: 500, headers: corsHeaders },
     );
   }
 
@@ -101,14 +116,13 @@ export async function POST(request: Request) {
           description: "",
           recommendations: "",
         },
-        { status: 502 },
+        { status: 502, headers: corsHeaders },
       );
     }
 
     const data = await response.json();
     const rawText = data?.choices?.[0]?.message?.content?.trim() || "";
     
-    // Log token usage
     if (data?.usage) {
       console.log("Token usage:", {
         prompt_tokens: data.usage.prompt_tokens,
@@ -117,14 +131,12 @@ export async function POST(request: Request) {
       });
     }
 
-
-    // Extract JSON from response
     const jsonMatch = rawText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       return Response.json({
         description: rawText,
         recommendations: "",
-      });
+      }, { headers: corsHeaders });
     }
 
     try {
@@ -132,13 +144,13 @@ export async function POST(request: Request) {
       return Response.json({
         description: String(parsed.description || ""),
         recommendations: String(parsed.recommendations || ""),
-      });
+      }, { headers: corsHeaders });
     } catch (e) {
       console.error("[vision] JSON parse error:", e);
       return Response.json({
         description: rawText,
         recommendations: "",
-      });
+      }, { headers: corsHeaders });
     }
   } catch (err) {
     console.error("[vision] Fetch error:", err);
@@ -148,7 +160,7 @@ export async function POST(request: Request) {
         description: "",
         recommendations: "",
       },
-      { status: 500 },
+      { status: 500, headers: corsHeaders },
     );
   }
 }
