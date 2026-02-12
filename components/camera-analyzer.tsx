@@ -118,8 +118,14 @@ export function CameraAnalyzer() {
   }, []);
 
   const handleStart = useCallback(() => {
-    startCamera(facing);
-  }, [startCamera, facing]);
+  startCamera(facing);
+  
+  if (typeof window !== "undefined" && window.speechSynthesis) {
+    const utterance = new SpeechSynthesisUtterance("");
+    utterance.volume = 0; // Que no se escuche nada
+    window.speechSynthesis.speak(utterance);
+  }
+}, [startCamera, facing]);
 
   const handleFacingChange = useCallback(
     (value: CameraFacing) => {
@@ -195,19 +201,24 @@ export function CameraAnalyzer() {
     const voices = window.speechSynthesis.getVoices();
 
     const getVoice = () => {
-      const langMap: Record<Language, string[]> = {
-        es: ["es-AR", "es-MX", "es-US", "es"],
-        en: ["en-US", "en-GB", "en"],
-        pt: ["pt-BR", "pt"],
-      };
-      
-      const langs = langMap[language];
-      const exactMatch = voices.find((v) => langs.includes(v.lang));
-      if (exactMatch) return exactMatch;
-      
-      const partialMatch = voices.find((v) => v.lang.startsWith(langs[0]?.split("-")[0] || "es"));
-      return partialMatch;
+    let voices = window.speechSynthesis.getVoices();
+    
+    // Si está vacío, intentamos forzar la carga
+    if (voices.length === 0) {
+      voices = window.speechSynthesis.getVoices();
+    }
+
+    const langMap: Record<Language, string[]> = {
+      es: ["es-AR", "es-MX", "es-ES"],
+      en: ["en-US", "en-GB"],
+      pt: ["pt-BR"],
     };
+    
+    const targets = langMap[language];
+    // Priorizar la voz encontrada o la primera disponible del idioma
+    return voices.find((v) => targets.includes(v.lang)) || 
+          voices.find((v) => v.lang.startsWith(targets[0].split("-")[0]));
+  };
 
     const speakText = (text: string, onComplete: () => void) => {
       if (!text.trim()) {
